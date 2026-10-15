@@ -654,8 +654,8 @@ function DraftEditorSession({ tabId, filePath, content, projectKey }: Props) {
           )}
         </div>
 
-        {/* 右侧：字数 + 状态 + 待合并 + AI操作 + 定稿 */}
-        {!isReadonly && (
+        {/* 右侧：字数 + 状态 + 待合并 + AI操作 + 定稿（定稿后仍保留 AI 修稿/审稿入口） */}
+        {status !== 'archived' && (
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {/* 字数 */}
             {charCount > 0 && (
@@ -665,7 +665,7 @@ function DraftEditorSession({ tabId, filePath, content, projectKey }: Props) {
             )}
 
             {/* 未保存指示灯 */}
-            {isDirty && (
+            {!isReadonly && isDirty && (
               <span
                 className="w-1.5 h-1.5 rounded-full flex-shrink-0 mr-0.5"
                 style={{ backgroundColor: 'var(--color-warning)' }}
@@ -674,7 +674,7 @@ function DraftEditorSession({ tabId, filePath, content, projectKey }: Props) {
             )}
 
             {/* 保存按钮 */}
-            {isDirty && (
+            {!isReadonly && isDirty && (
               <Button
                 variant="outline"
                 size="sm"
@@ -687,16 +687,22 @@ function DraftEditorSession({ tabId, filePath, content, projectKey }: Props) {
               </Button>
             )}
 
-            {/* 状态标签 */}
-            <span
-              className="text-[0.7rem] px-1.5 py-0.5 rounded flex-shrink-0"
-              style={{
-                backgroundColor: 'var(--color-hover)',
-                color: DRAFT_STATUS_COLOR[status] ?? 'var(--color-text-muted)',
-              }}
-            >
-              {text(DRAFT_STATUS_LABEL[status] ?? status, DRAFT_STATUS_EN[status] ?? status)}
-            </span>
+            {/* 状态标签（定稿时显示只读提示） */}
+            {isReadonly ? (
+              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                {text('已定稿（只读）', 'Finalized (read-only)')}
+              </span>
+            ) : (
+              <span
+                className="text-[0.7rem] px-1.5 py-0.5 rounded flex-shrink-0"
+                style={{
+                  backgroundColor: 'var(--color-hover)',
+                  color: DRAFT_STATUS_COLOR[status] ?? 'var(--color-text-muted)',
+                }}
+              >
+                {text(DRAFT_STATUS_LABEL[status] ?? status, DRAFT_STATUS_EN[status] ?? status)}
+              </span>
+            )}
 
             {finalizationConflict && (
               <span
@@ -749,7 +755,7 @@ function DraftEditorSession({ tabId, filePath, content, projectKey }: Props) {
               </Button>
             )}
 
-            {/* AI 修稿 */}
+            {/* AI 修稿（定稿状态仍可用：修订稿为追加记录，合并由后端守卫保护定稿正文不可变） */}
             <Button
               variant="ai"
               size="sm"
@@ -761,7 +767,7 @@ function DraftEditorSession({ tabId, filePath, content, projectKey }: Props) {
                 {text('AI 修稿', 'AI revise')}
             </Button>
 
-            {/* AI 审稿 */}
+            {/* AI 审稿（定稿状态仍可用：审稿报告为追加记录，不改写正文） */}
             <Button
               variant="ai"
               size="sm"
@@ -774,43 +780,19 @@ function DraftEditorSession({ tabId, filePath, content, projectKey }: Props) {
             </Button>
 
             {/* 定稿 */}
-            <Button
-              variant="success"
-              size="sm"
-              onClick={doFinalize}
-              disabled={isChapterBusy || !!finalizationConflict || finalizationPending}
-                title={text('定稿 — 确认终稿并写入正文章节', 'Finalize — confirm the final draft and write it to the manuscript')}
-            >
-              <BadgeCheck size={12} />
-                {text('定稿', 'Finalize')}
-            </Button>
-          </div>
-        )}
-
-        {/* 已定稿/归档显示只读提示 */}
-        {isReadonly && (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {charCount > 0 && (
-              <span className="text-xs tabular-nums" style={{ color: 'var(--color-text-muted)' }}>
-                {text(`${charCount.toLocaleString(locale)} 字`, `${charCount.toLocaleString(locale)} words`)}
-              </span>
-            )}
-            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              {status === 'finalized'
-                ? text('已定稿（只读）', 'Finalized (read-only)')
-                : text('已归档（只读）', 'Archived (read-only)')}
-            </span>
-            {finalizationPending && (
+            {!isReadonly && (
               <Button
-                variant="outline"
+                variant="success"
                 size="sm"
-                onClick={doRetryManuscriptPublication}
-                title={text('定稿已提交、实体稿待发布；只重试已提交的发布记录', 'Finalization is submitted and the manuscript is pending publication. Retry only the submitted publication.')}
+                onClick={doFinalize}
+                disabled={isChapterBusy || !!finalizationConflict || finalizationPending}
+                  title={text('定稿 — 确认终稿并写入正文章节', 'Finalize — confirm the final draft and write it to the manuscript')}
               >
-                <Wrench size={11} />
-                {text('重试实体稿', 'Retry manuscript')}
+                <BadgeCheck size={12} />
+                  {text('定稿', 'Finalize')}
               </Button>
             )}
+
             {/* 已定稿 → 有失败项时显示修复定稿按钮 */}
             {status === 'finalized' && meta && hasProcessFailure && (
               <Button
@@ -822,6 +804,31 @@ function DraftEditorSession({ tabId, filePath, content, projectKey }: Props) {
               >
                 <Wrench size={11} />
                 {text('修复定稿', 'Repair finalization')}
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* 已归档显示只读提示 */}
+        {status === 'archived' && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {charCount > 0 && (
+              <span className="text-xs tabular-nums" style={{ color: 'var(--color-text-muted)' }}>
+                {text(`${charCount.toLocaleString(locale)} 字`, `${charCount.toLocaleString(locale)} words`)}
+              </span>
+            )}
+            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              {text('已归档（只读）', 'Archived (read-only)')}
+            </span>
+            {finalizationPending && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={doRetryManuscriptPublication}
+                title={text('定稿已提交、实体稿待发布；只重试已提交的发布记录', 'Finalization is submitted and the manuscript is pending publication. Retry only the submitted publication.')}
+              >
+                <Wrench size={11} />
+                {text('重试实体稿', 'Retry manuscript')}
               </Button>
             )}
           </div>

@@ -596,11 +596,8 @@ describe('batch chapter completion mode browser flow', () => {
         expect(treeText).toContain(treeSection)
         expect(treeText).toContain(chapterLabel)
         expect(editor?.textContent).toContain(editorState)
-        if (mode === 'draft_review') {
-          expect(editor?.textContent).toContain(reviewLabel)
-        } else {
-          expect(editor?.textContent).not.toContain(reviewLabel)
-        }
+        // 定稿状态仍保留 AI 修稿/审稿入口（追加记录，不改写定稿正文）
+        expect(editor?.textContent).toContain(reviewLabel)
       })
 
       const prose = page.getByTestId('chapter-editor').getByRole('textbox')
